@@ -42,10 +42,6 @@ const PaymentCallback = () => {
   // ==========================================
 
   useEffect(() => {
-    let redirectTimer:
-      | number
-      | undefined;
-
     let cancelled = false;
 
     const verify = async () => {
@@ -92,22 +88,47 @@ const PaymentCallback = () => {
 
         setStatus("success");
 
-        redirectTimer =
-          window.setTimeout(
-            () => {
-              navigate(
-                `/orders/${data.order._id}`,
-                {
-                  replace: true,
-                  state: {
-                    orderPlaced:
-                      true,
-                  },
-                }
-              );
-            },
-            1500
+        /*
+         * Briefly show the success
+         * state before taking the
+         * customer to the order
+         * tracking/details page.
+         */
+        await new Promise<void>(
+          (resolve) => {
+            window.setTimeout(
+              resolve,
+              1500
+            );
+          }
+        );
+
+        if (cancelled) {
+          return;
+        }
+
+        const orderId =
+          data?.order?._id;
+
+        if (!orderId) {
+          setError(
+            "Payment was verified, but the order details could not be loaded."
           );
+
+          setStatus("error");
+
+          return;
+        }
+
+        navigate(
+          `/orders/${orderId}`,
+          {
+            replace: true,
+            state: {
+              orderPlaced: true,
+            },
+          }
+        );
       } catch (error) {
         console.error(error);
 
@@ -127,15 +148,6 @@ const PaymentCallback = () => {
 
     return () => {
       cancelled = true;
-
-      if (
-        redirectTimer !==
-        undefined
-      ) {
-        window.clearTimeout(
-          redirectTimer
-        );
-      }
     };
   }, [
     searchParams,

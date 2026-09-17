@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
@@ -90,10 +91,8 @@ export const CartProvider = ({
     );
 
   /*
-   * Prevent the save effect from
-   * writing the previous user's cart
-   * into the new user's storage key
-   * during an account switch.
+   * Track which account/storage key
+   * the currently loaded cart belongs to.
    */
   const loadedStorageKey =
     useRef(storageKey);
@@ -120,9 +119,9 @@ export const CartProvider = ({
     /*
      * If authentication changed but
      * React has not loaded the new
-     * account's cart yet, do not save
-     * the previous cart under the new
-     * account.
+     * account's cart yet, don't save
+     * the previous account's cart
+     * under the new storage key.
      */
     if (
       loadedStorageKey.current !==
@@ -141,96 +140,120 @@ export const CartProvider = ({
   // ADD TO CART
   // ==========================================
 
-  const addToCart = (
-    product: Product
-  ) => {
-    setCartItems(
-      (currentItems) => {
-        const existingItem =
-          currentItems.find(
-            (item) =>
-              item.product._id ===
-              product._id
-          );
+  const addToCart = useCallback(
+    (product: Product) => {
+      setCartItems(
+        (currentItems) => {
+          const existingItem =
+            currentItems.find(
+              (item) =>
+                item.product._id ===
+                product._id
+            );
 
-        if (existingItem) {
-          return currentItems.map(
-            (item) =>
-              item.product._id ===
-              product._id
-                ? {
-                    ...item,
-                    quantity:
-                      item.quantity +
-                      1,
-                  }
-                : item
-          );
+          if (existingItem) {
+            return currentItems.map(
+              (item) =>
+                item.product._id ===
+                product._id
+                  ? {
+                      ...item,
+                      quantity:
+                        item.quantity +
+                        1,
+                    }
+                  : item
+            );
+          }
+
+          return [
+            ...currentItems,
+            {
+              product,
+              quantity: 1,
+            },
+          ];
         }
-
-        return [
-          ...currentItems,
-          {
-            product,
-            quantity: 1,
-          },
-        ];
-      }
-    );
-  };
+      );
+    },
+    []
+  );
 
   // ==========================================
   // REMOVE FROM CART
   // ==========================================
 
-  const removeFromCart = (
-    productId: string
-  ) => {
-    setCartItems(
-      (currentItems) =>
-        currentItems.filter(
-          (item) =>
-            item.product._id !==
-            productId
-        )
+  const removeFromCart =
+    useCallback(
+      (productId: string) => {
+        setCartItems(
+          (currentItems) =>
+            currentItems.filter(
+              (item) =>
+                item.product._id !==
+                productId
+            )
+        );
+      },
+      []
     );
-  };
 
   // ==========================================
   // UPDATE QUANTITY
   // ==========================================
 
-  const updateQuantity = (
-    productId: string,
-    quantity: number
-  ) => {
-    if (quantity <= 0) {
-      removeFromCart(productId);
-      return;
-    }
+  const updateQuantity =
+    useCallback(
+      (
+        productId: string,
+        quantity: number
+      ) => {
+        if (quantity <= 0) {
+          setCartItems(
+            (currentItems) =>
+              currentItems.filter(
+                (item) =>
+                  item.product._id !==
+                  productId
+              )
+          );
 
-    setCartItems(
-      (currentItems) =>
-        currentItems.map(
-          (item) =>
-            item.product._id ===
-            productId
-              ? {
-                  ...item,
-                  quantity,
-                }
-              : item
-        )
+          return;
+        }
+
+        setCartItems(
+          (currentItems) =>
+            currentItems.map(
+              (item) =>
+                item.product._id ===
+                productId
+                  ? {
+                      ...item,
+                      quantity,
+                    }
+                  : item
+            )
+        );
+      },
+      []
     );
-  };
 
   // ==========================================
   // CLEAR CURRENT CART
   // ==========================================
 
-  const clearCart = () => {
-    setCartItems([]);
-  };
+  /*
+   * useCallback keeps clearCart's
+   * function identity stable.
+   *
+   * This is important for pages such
+   * as PaymentCallback that use
+   * clearCart inside a useEffect.
+   */
+  const clearCart =
+    useCallback(() => {
+      setCartItems([]);
+    }, []);
 
   // ==========================================
   // TOTALS
